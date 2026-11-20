@@ -98,8 +98,8 @@ class FirstMoveRadar:
         self.tool = tool
         self.chains = tuple(chains)
         self.refresh_sec = REFRESH_SEC
-        self.enabled = enabled and os.path.exists(tool) and self.node is not None
         self.node = _find_node()
+        self.enabled = enabled and os.path.exists(tool) and self.node is not None
         self.lock = threading.Lock()
         self.rows = {}          # ticker -> {inflow, chg, hype, sentiment, chain, name, ca}
         self.updated = 0.0
