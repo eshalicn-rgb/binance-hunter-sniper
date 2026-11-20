@@ -106,8 +106,9 @@ class RegimeGate:
                 capture_output=True, text=True, timeout=RUN_TIMEOUT,
                 env={**os.environ, "PYTHONIOENCODING": "utf-8"},
                 # Parent is pythonw.exe: without this every refresh allocates a
-                # fresh console window. Never remove this flag.
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+                # fresh console window. Never remove this flag on Windows.
+                **({} if sys.platform != "win32" else
+                   {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)}),
             )
             self.runs += 1
             jf = os.path.join(REPORT_DIR, "crypto_regime.json")

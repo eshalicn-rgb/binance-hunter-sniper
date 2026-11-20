@@ -116,11 +116,15 @@ class FirstMoveRadar:
                 json.dump(params, f)
             # CREATE_NO_WINDOW: parent is pythonw.exe, so without this every
             # node.exe spawn allocates a fresh console -> black window popping
-            # up every ~2s.  Never remove this flag.
+            # up every ~2s.  Never remove this flag on Windows.
+            run_kwargs = dict(capture_output=True, text=True, timeout=CALL_TIMEOUT)
+            if sys.platform == "win32":
+                run_kwargs["creationflags"] = getattr(
+                    subprocess, "CREATE_NO_WINDOW", 0x08000000
+                )
             proc = subprocess.run(
                 [self.node, self.tool, cmd, "--params-file", path, "--compact"],
-                capture_output=True, text=True, timeout=CALL_TIMEOUT,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000),
+                **run_kwargs,
             )
             self.calls += 1
             if proc.returncode != 0 or not proc.stdout.strip():
