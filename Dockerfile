@@ -2,8 +2,12 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
-# Install dependencies
-RUN pip install flask requests
+# Install dependencies + Node.js (needed by pregainers.py radar via tools/market_rank.mjs)
+RUN apt-get update && apt-get install -y --no-install-recommends curl gnupg && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install flask requests
 
 # Copy the hunter application
 COPY . .

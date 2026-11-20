@@ -2,7 +2,7 @@ services:
   - type: web
     name: binance-hunter
     env: python
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: "pip install -r requirements.txt && apt-get update && apt-get install -y --no-install-recommends curl gnupg && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y --no-install-recommends nodejs && rm -rf /var/lib/apt/lists/*"
     startCommand: "python app.py"
     envVars:
       - key: HUNTER_PORT
