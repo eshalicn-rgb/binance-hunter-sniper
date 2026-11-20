@@ -1,0 +1,11 @@
+.env
+*.log
+*.pid
+*.json
+__pycache__/
+*.pyc
+*.bak
+*.old
+.hunter/
+.env.local
+secrets/

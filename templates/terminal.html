@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KUCOIN HUNTER · TERMINAL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/terminal.css">
+</head>
+<body>
+    <!-- CRT Scanlines Overlay -->
+    <div class="crt-overlay" aria-hidden="true"></div>
+    
+    <!-- Header Bar -->
+    <header class="header-bar" role="banner">
+        <div class="header-left">
+            <span class="logo" aria-label="KuCoin Hunter Terminal">
+                <span class="logo-icon">▲</span>
+                <span class="logo-text">KUCOIN HUNTER</span>
+                <span class="logo-version">v2.0</span>
+            </span>
+            <span class="status-indicator" id="connectionStatus" aria-live="polite">
+                <span class="status-dot"></span>
+                <span class="status-text">CONNECTING</span>
+            </span>
+        </div>
+        <div class="header-center">
+            <div class="market-clock" id="marketClock" aria-live="polite">
+                <span class="clock-label">UTC</span>
+                <span class="clock-time">--:--:--</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="account-summary" id="accountSummary">
+                <span class="balance-label">EQUITY</span>
+                <span class="balance-value" id="equityValue">$0.00</span>
+                <span class="pnl-value" id="pnlValue">+$0.00 (+0.00%)</span>
+            </div>
+            <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme" aria-pressed="false">
+                <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+            <button class="kill-switch" id="killSwitch" aria-label="Emergency kill switch - stops all trading">
+                <span class="kill-icon">⬢</span>
+                <span class="kill-text">KILL</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Terminal Grid -->
+    <main class="terminal-grid" role="main">
+        
+        <!-- Left Panel: Market Radar & Watchlist -->
+        <aside class="panel panel-left" aria-label="Market Radar">
+            <div class="panel-header">
+                <h2 class="panel-title">MARKET RADAR</h2>
+                <div class="panel-controls">
+                    <select id="radarFilter" class="terminal-select" aria-label="Filter radar">
+                        <option value="all">ALL</option>
+                        <option value="gainers">GAINERS</option>
+                        <option value="volume">VOLUME</option>
+                        <option value="coiled">COILED</option>
+                    </select>
+                </div>
+            </div>
+            <div class="panel-content" id="marketRadar">
+                <div class="loading-state">INITIALIZING...</div>
+            </div>
+        </aside>
+
+        <!-- Center Panel: Chart & Order Book -->
+        <section class="panel panel-center" aria-label="Chart & Depth">
+            <div class="panel-header">
+                <h2 class="panel-title">CHART</h2>
+                <div class="panel-controls">
+                    <div class="symbol-selector" id="symbolSelector">
+                        <span class="symbol-label">SYMBOL</span>
+                        <input type="text" id="symbolInput" class="terminal-input" placeholder="BTC-USDT" autocomplete="off" spellcheck="false" aria-label="Trading symbol">
+                        <div class="symbol-suggestions" id="symbolSuggestions" role="listbox"></div>
+                    </div>
+                    <div class="timeframe-tabs" id="timeframeTabs" role="tablist" aria-label="Timeframes">
+                        <button role="tab" data-tf="1m" aria-selected="true">1M</button>
+                        <button role="tab" data-tf="5m" aria-selected="false">5M</button>
+                        <button role="tab" data-tf="15m" aria-selected="false">15M</button>
+                        <button role="tab" data-tf="1h" aria-selected="false">1H</button>
+                        <button role="tab" data-tf="4h" aria-selected="false">4H</button>
+                        <button role="tab" data-tf="1d" aria-selected="false">1D</button>
+                    </div>
+                </div>
+            </div>
+            <div class="panel-content chart-container">
+                <canvas id="priceChart" class="price-chart" aria-label="Price chart with candlesticks"></canvas>
+                <canvas id="volumeChart" class="volume-chart" aria-label="Volume bars"></canvas>
+                <div class="chart-overlay" id="chartOverlay"></div>
+            </div>
+            
+            <!-- Order Book & Recent Trades -->
+            <div class="depth-trades-split">
+                <div class="depth-panel" aria-label="Order Book">
+                    <div class="depth-header">
+                        <span class="depth-title">ORDER BOOK</span>
+                        <span class="spread-value" id="spreadValue">SPRD: --</span>
+                    </div>
+                    <div class="depth-content" id="orderBook">
+                        <div class="depth-side asks" id="asks"></div>
+                        <div class="depth-spread" id="spreadLine"></div>
+                        <div class="depth-side bids" id="bids"></div>
+                    </div>
+                </div>
+                <div class="trades-panel" aria-label="Recent Trades">
+                    <div class="trades-header">
+                        <span class="trades-title">TAPE</span>
+                        <span class="trades-count" id="tradesCount">0</span>
+                    </div>
+                    <div class="trades-content" id="recentTrades"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Panel: Signals & Positions -->
+        <aside class="panel panel-right" aria-label="Signals & Positions">
+            <div class="panel-header">
+                <h2 class="panel-title">SIGNALS</h2>
+                <div class="panel-controls">
+                    <button class="terminal-btn terminal-btn--ghost" id="refreshSignals" aria-label="Refresh signals">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="panel-content signals-content" id="signalsList">
+                <div class="loading-state">SCANNING...</div>
+            </div>
+            
+            <!-- Positions -->
+            <div class="panel-divider"></div>
+            <div class="panel-header">
+                <h2 class="panel-title">POSITIONS</h2>
+            </div>
+            <div class="panel-content positions-content" id="positionsList">
+                <div class="empty-state">NO OPEN POSITIONS</div>
+            </div>
+            
+            <!-- Trade Plan Modal Trigger -->
+            <div class="panel-divider"></div>
+            <div class="panel-header">
+                <h2 class="panel-title">TRADE PLAN</h2>
+            </div>
+            <div class="panel-content trade-plan-content" id="tradePlan">
+                <div class="plan-empty">SELECT A SIGNAL TO VIEW PLAN</div>
+            </div>
+        </aside>
+
+    </main>
+
+    <!-- Footer Status Bar -->
+    <footer class="footer-bar" role="contentinfo">
+        <div class="footer-left">
+            <span class="footer-item" id="scanStatus">SCAN: IDLE</span>
+            <span class="footer-divider">|</span>
+            <span class="footer-item" id="apiStatus">API: OK</span>
+            <span class="footer-divider">|</span>
+            <span class="footer-item" id="wsStatus">WS: CONNECTING</span>
+        </div>
+        <div class="footer-center">
+            <span class="footer-item" id="modeIndicator">MODE: SHADOW</span>
+        </div>
+        <div class="footer-right">
+            <span class="footer-item" id="lastUpdate">LAST: --:--:--</span>
+        </div>
+    </footer>
+
+    <!-- Trade Plan Modal -->
+    <dialog class="modal" id="tradeModal" aria-modal="true" aria-labelledby="modalTitle">
+        <form method="dialog" class="modal-content">
+            <header class="modal-header">
+                <h3 id="modalTitle">TRADE PLAN: <span id="modalSymbol">BTC-USDT</span></h3>
+                <button class="modal-close" value="cancel" aria-label="Close">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </header>
+            <div class="modal-body">
+                <div class="plan-grid">
+                    <div class="plan-section">
+                        <h4>ENTRY</h4>
+                        <div class="plan-row"><span>PRICE</span><span id="planEntry" class="value">--</span></div>
+                        <div class="plan-row"><span>SIZE</span><span id="planSize" class="value">--</span></div>
+                        <div class="plan-row"><span>VALUE</span><span id="planValue" class="value">--</span></div>
+                    </div>
+                    <div class="plan-section">
+                        <h4>RISK</h4>
+                        <div class="plan-row"><span>STOP LOSS</span><span id="planSL" class="value danger">--</span></div>
+                        <div class="plan-row"><span>RISK $</span><span id="planRisk" class="value danger">--</span></div>
+                        <div class="plan-row"><span>RISK %</span><span id="planRiskPct" class="value danger">--</span></div>
+                    </div>
+                    <div class="plan-section">
+                        <h4>TARGETS</h4>
+                        <div class="plan-row"><span>TP1</span><span id="planTP1" class="value success">--</span></div>
+                        <div class="plan-row"><span>TP2</span><span id="planTP2" class="value success">--</span></div>
+                        <div class="plan-row"><span>TP3</span><span id="planTP3" class="value success">--</span></div>
+                    </div>
+                    <div class="plan-section">
+                        <h4>METRICS</h4>
+                        <div class="plan-row"><span>R:R</span><span id="planRR" class="value">--</span></div>
+                        <div class="plan-row"><span>WIN RATE</span><span id="planWR" class="value">--</span></div>
+                        <div class="plan-row"><span>EXPECTANCY</span><span id="planExp" class="value">--</span></div>
+                    </div>
+                </div>
+                <div class="plan-rationale" id="planRationale"></div>
+            </div>
+            <footer class="modal-footer">
+                <button class="terminal-btn terminal-btn--ghost" value="cancel">CANCEL</button>
+                <button class="terminal-btn terminal-btn--danger" id="btnSell" value="sell">SELL</button>
+                <button class="terminal-btn terminal-btn--primary" id="btnBuy" value="buy">BUY</button>
+            </footer>
+        </form>
+    </dialog>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Equity Chart Modal -->
+    <dialog class="modal modal-large" id="equityModal" aria-modal="true" aria-labelledby="equityModalTitle">
+        <div class="modal-content">
+            <header class="modal-header">
+                <h3 id="equityModalTitle">EQUITY CURVE</h3>
+                <button class="modal-close" aria-label="Close">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </header>
+            <div class="modal-body">
+                <canvas id="equityChart" class="equity-chart" aria-label="Equity curve and drawdown"></canvas>
+                <div class="equity-stats" id="equityStats"></div>
+            </div>
+        </div>
+    </dialog>
+
+    <script src="/static/js/terminal.js"></script>
+</body>
+</html>

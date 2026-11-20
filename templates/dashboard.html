@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BINANCE HUNTER · SPOT SNIPER TERMINAL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- ================= HEADER ================= -->
+<div class="hdr">
+  <div class="brand">
+    <svg viewBox="0 0 40 40" fill="none">
+      <circle cx="20" cy="20" r="17" stroke="#F0B90B" stroke-width="1.4" opacity=".5"/>
+      <circle cx="20" cy="20" r="10.5" stroke="#F0B90B" stroke-width="1.4"/>
+      <path d="M20 2v8M20 30v8M2 20h8M30 20h8" stroke="#F0B90B" stroke-width="1.4"/>
+      <circle cx="20" cy="20" r="3" fill="#F0B90B"/>
+      <path d="M20 20 31 9" stroke="#0ECB81" stroke-width="1.6"/>
+    </svg>
+    <div>
+      <div class="t">BINANCE<span>HUNTER</span></div>
+      <div class="s">Spot Sniper Terminal</div>
+    </div>
+  </div>
+  <div class="hdr-end">
+    <span id="acct">—</span>
+    <span><span id="clk">—</span> <span id="clkTz" class="dim2" style="font-size:10px;letter-spacing:.06em">UTC</span></span>
+    <span><span id="clkEst">—</span> <span id="clkEstTz" class="dim2" style="font-size:10px;letter-spacing:.06em">EST</span></span>
+    <span class="pill on" id="pill"><i></i><span id="pillTxt">—</span></span>
+    <button class="gold" id="btnAutoRefresh" title="Auto-refresh on/off">🔄 Live</button>
+    <button class="gold kill-switch" id="btnToggle" data-action="toggle">KILL</button>
+  </div>
+</div>
+
+<!-- KPI -->
+<div class="kpis">
+  <div class="kpi"><span class="l">Balance</span><span class="v" id="kBal">—</span></div>
+  <div class="kpi"><span class="l">Target</span><span class="v gold" id="kTgt">—</span></div>
+  <div class="kpi"><span class="l">P&L Today</span><span class="v" id="kPnl">—</span></div>
+  <div class="kpi"><span class="l">Open / Max</span><span class="v" id="kPos">—</span></div>
+  <div class="kpi"><span class="l">Trades</span><span class="v" id="kTr">—</span></div>
+  <div class="kpi"><span class="l">Swept</span><span class="v" id="kSw">—</span></div>
+  <div class="kpi"><span class="l">Candidates</span><span class="v" id="kCd">—</span></div>
+  <div class="kpi"><span class="l">Signals</span><span class="v" id="kSig">—</span></div>
+  <div class="kpi equity-panel">
+    <canvas class="equity-canvas" id="equityCanvas" style="height:60px"></canvas>
+    <div class="equity-stats" id="equityStats"></div>
+  </div>
+</div>
+
+<!-- Scanner -->
+<div class="scan">
+  <div class="tag"><i></i>Sweeping Binance</div>
+  <div class="mq"><span id="ticker">initialising sweep…</span></div>
+  <div class="sweep"></div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <!-- Row 0: Search -->
+  <div class="grid r0">
+    <div class="panel" id="p_search">
+      <div class="srchwrap">
+        <span class="lbl">Search coin</span>
+        <div class="srch">
+          <input id="coinQ" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="type a symbol — ZEC, PEPE, ARB, SOL…">
+          <div class="sres" id="coinRes"></div>
+        </div>
+        <span class="meta" id="coinMeta">loading index…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 1: Agents / Shortlist / Gates -->
+  <div class="grid r1">
+    <div class="panel" id="p_agents">
+      <div class="ph"><h2>Swarm Agents</h2><span class="meta" id="agMeta">—</span></div>
+      <div id="agents"><div class="empty">connecting…</div></div>
+      <div class="agbox" id="agbox"></div>
+    </div>
+    <div class="panel" id="p_shortlist">
+      <div class="ph"><h2>Sniper Shortlist</h2><span class="meta">ranked by order-flow score · click a row → chart</span></div>
+      <div class="scroll">
+        <table class="tbl">
+          <thead><tr>
+            <th>Symbol</th><th>Price</th><th>24h</th><th>5m</th><th>Vol×</th><th>Buy/Sell</th>
+            <th>Imbal</th><th>Spread</th><th>Liq $</th><th>Score</th><th>Gates</th><th>Trend</th>
+          </tr></thead>
+          <tbody id="rows"><tr><td colspan="12" class="empty">sweeping market…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel" id="p_gates">
+      <div class="ph"><h2>Firing Gates</h2><span class="meta">7 hard conditions</span></div>
+      <div class="gl" id="gates"></div>
+      <div class="gsum"><span class="dim">Best candidate</span><span id="gBest" class="gold mono">—</span></div>
+    </div>
+  </div>
+
+  <!-- Row 2: Chart + Book/Flow -->
+  <div class="grid r2">
+    <div class="panel spot">
+      <div class="ph">
+        <h2>Chart</h2>
+        <span class="meta" id="chartMeta">select a coin</span>
+        <span class="tfbar" id="tfbar">
+          <button data-tf="1m" class="on">1m</button>
+          <button data-tf="5m">5m</button>
+          <button data-tf="15m">15m</button>
+          <button data-tf="1h">1h</button>
+          <button data-tf="4h">4h</button>
+          <button data-tf="1d">1d</button>
+        </span>
+        <span class="srcbar" id="srcbar">
+          <button data-src="binance" title="Binance real-time kline websocket (disabled)">BINANCE LIVE</button>
+          <button data-src="tradingview" class="on" title="TradingView chart with drawing tools">TRADINGVIEW + TOOLS</button>
+        </span>
+        <button class="theme-toggle" id="themeToggle" title="Toggle dark/light theme">🌙 Dark</button>
+        <span class="wsdot on" id="wsDot">● …</span>
+        <span class="tzchip" id="chartTz" title="chart timezone, set by the engine">TZ —</span>
+        <span class="ctmr" id="candleT" title="time left in the current candle"><b>—</b><span class="bar"><i></i></span><span id="candleL">--:--</span></span>
+        <span class="grow"></span>
+        <a id="tvLink" style="display:none;font-size:10px;letter-spacing:.1em;text-transform:uppercase">TradingView ↗</a>
+      </div>
+      <div class="hudcorner tl"></div><div class="hudcorner tr"></div><div class="hudcorner bl"></div><div class="hudcorner br"></div>
+      <div class="chartbox" id="tvBox"><div id="tvchart" style="height:100%;width:100%"></div></div>
+      <div class="chartbox" id="chartBox" style="display:none"><div class="empty">Binance chart disabled — use TradingView</div></div>
+      <div class="ph" style="border-top:1px solid var(--ln);border-bottom:0">
+        <span class="meta">Binance real-time <b id="chartTfNote">1m</b> kline stream · last <span id="chartPx" class="gold">—</span> · <span id="chartSrc" class="dim2">binance ws</span></span>
+      </div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;padding:0">
+      <div class="panel" id="p_orderbook">
+        <div class="ph"><h2>Order Book</h2><span class="meta" id="obSymT">—</span></div>
+        <div class="scroll ob" id="obBody"><div class="empty">no symbol</div></div>
+      </div>
+      <div class="panel" id="p_flow">
+        <div class="ph"><h2>Volume Flow</h2><span class="meta" id="flSymT">—</span></div>
+        <div class="scroll flow" id="flBody"><div class="empty">no symbol</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: TA / Plan / Follow-up -->
+  <div class="grid r3">
+    <div class="panel" id="p_ta">
+      <div class="ph"><h2>Fib & Gann Levels</h2><span class="meta" id="taMeta">select a coin</span></div>
+      <div class="gl" id="taHead"></div>
+      <div class="scroll" id="taLevels"><div class="empty">no structure — select a coin</div></div>
+      <div class="gsum">
+        <span class="dim2" style="font-size:10px">click a level → pin on chart</span>
+        <span><button id="taPin" style="padding:2px 7px">Pin all</button>
+              <button id="taClear" style="padding:2px 7px">Clear</button></span>
+      </div>
+    </div>
+    <div class="panel" id="p_plan">
+      <div class="ph"><h2>Trade Plan · Entry/Trail/TP/SL</h2><span class="meta" id="plMeta">select a coin</span></div>
+      <div class="plan" id="plGrid"><div class="pc wide"><div class="k">plan</div><div class="v dim2">select a coin — every hunt prints its own plan</div></div></div>
+      <div class="planbar"><span class="dim2">reward:risk</span><span class="rrbar" id="plRr"><i style="width:0%"></i></span><span class="mono" id="plRrV">—</span></div>
+      <div class="scroll" id="plWhy"><div class="empty">no live plan</div></div>
+    </div>
+    <div class="panel" id="p_follow">
+      <div class="ph"><h2>Signal Follow-Up · Fronttest / Backtest</h2><span class="meta" id="fwMeta">—</span></div>
+      <div class="fwst" id="fwStats"><div><div class="v">0</div><div class="l">tracked</div></div><div><div class="v">0</div><div class="l">open</div></div><div><div class="v">—</div><div class="l">win %</div></div><div><div class="v">—</div><div class="l">PF</div></div></div>
+      <div class="scroll" id="fwBody"><div class="empty">no signals tracked yet</div></div>
+      <div class="gsum" style="gap:6px">
+        <button id="fwBack" style="padding:3px 8px">Run backtest</button>
+        <span class="dim2" id="fwBt">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 4: News / Feeds / AltFins -->
+  <div class="grid r4">
+    <div class="panel" id="p_news">
+      <div class="ph"><h2>News & Catalysts</h2><span class="meta" id="catMeta">—</span></div>
+      <div class="scroll" id="catBody"><div class="empty">loading feeds…</div></div>
+    </div>
+    <div class="panel" id="p_feeds">
+      <div class="ph"><h2>Source Feeds</h2><span class="meta" id="srcMeta">—</span></div>
+      <div class="scroll" id="feedBody"><div class="empty">loading feeds…</div></div>
+    </div>
+    <div class="panel" id="p_altfins">
+      <div class="ph"><h2>AltFins Bullish Patterns</h2><span class="meta" id="afMeta">—</span></div>
+      <div class="scroll" id="afBody"><div class="empty">no AltFins patterns</div></div>
+    </div>
+  </div>
+
+  <!-- Row 5: Pre-Pump Radar -->
+  <div class="grid r5">
+    <div class="panel" id="p_prepump">
+      <div class="ph"><h2>Pre-Pump Radar</h2><span class="meta" id="ppMeta">coiling before the move</span></div>
+      <div class="scroll" id="ppBody"><table class="pp-tbl" id="ppTbl"><thead><tr>
+        <th style="width:14%">Symbol</th><th style="width:8%">Dir</th><th style="width:8%">Rating</th><th style="width:10%">Score</th><th style="width:12%">Buy %</th><th style="width:12%">24h</th><th style="width:18%">Reasons</th><th style="width:18%">State</th>
+      </tr></thead><tbody id="ppRows"><tr><td colspan="8" class="empty">reading the tape…</td></tr></tbody></table></div>
+    </div>
+    <div class="panel" id="p_movers">
+      <div class="ph"><h2>Movers · 24h</h2><span class="meta" id="mvMeta">—</span></div>
+      <div class="scroll" id="mvBody"><div class="empty">ranking the sweep…</div></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="dim2" style="margin:2px 8px 10px;font-size:10px;letter-spacing:.06em">
+  BINANCE HUNTER · spot only · read-only dashboard, orders originate in the engine · poll 2s
+</div>
+
+<script src="https://s3.tradingview.com/tv.js"></script>
+<div class="toast" id="toast"></div>
+<div class="modal-overlay" id="modalOverlay" style="display:none;">
+  <div class="modal">
+    <h3 id="modalTitle"></h3>
+    <p id="modalMessage"></p>
+    <div class="modal-actions">
+      <button class="modal-btn cancel">Cancel</button>
+      <button class="modal-btn confirm">Confirm</button>
+    </div>
+  </div>
+</div>
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>
