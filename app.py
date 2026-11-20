@@ -128,7 +128,7 @@ def tz_info():
 # Binance API credentials (loaded from .env)
 BINANCE_API_KEY = os.environ.get("BINANCE_API_KEY", "")
 BINANCE_API_SECRET = os.environ.get("BINANCE_API_SECRET", "")
-BINANCE_BASE = "https://api.binance.us"
+BINANCE_BASE = "https://api.binance.com"
 
 # Trading parameters for small account
 START_BALANCE = float(os.environ.get("HUNTER_START_BALANCE", "9.0"))
