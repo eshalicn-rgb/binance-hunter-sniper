@@ -61,11 +61,14 @@ SOCIAL_SEC = 420
 def _find_node() -> str:
     """Locate a node binary the same way the rest of the project does."""
     for c in (os.environ.get("NODE_BIN"), shutil.which("node"),
+              r"/usr/bin/node",
+              r"/usr/local/bin/node",
+              r"/opt/node/bin/node",
               r"G:\Program Files\nodejs\node.exe",
               r"C:\Program Files\nodejs\node.exe"):
         if c and os.path.exists(c):
             return c
-    return "node"
+    return None
 
 
 def _f(x, d=0.0):
@@ -94,8 +97,8 @@ class FirstMoveRadar:
                  refresh_sec=REFRESH_SEC, enabled=True):
         self.tool = tool
         self.chains = tuple(chains)
-        self.refresh_sec = refresh_sec
-        self.enabled = enabled and os.path.exists(tool)
+        self.refresh_sec = REFRESH_SEC
+        self.enabled = enabled and os.path.exists(tool) and self.node is not None
         self.node = _find_node()
         self.lock = threading.Lock()
         self.rows = {}          # ticker -> {inflow, chg, hype, sentiment, chain, name, ca}
@@ -108,7 +111,7 @@ class FirstMoveRadar:
     # ---------------------------------------------------------------- transport
     def _call(self, cmd, params):
         """Run the vendored rank tool and return its parsed JSON, or None."""
-        if not self.enabled:
+        if not self.enabled or self.node is None:
             return None
         fd, path = tempfile.mkstemp(suffix=".json", prefix="mr_")
         try:
