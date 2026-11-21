@@ -13,12 +13,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl gnupg && \
 COPY . .
 
 # Environment for unique port configuration
-ENV HUNTER_PORT=3245
+ENV HUNTER_PORT=4564
 ENV BINANCE_API_KEY=""
 ENV BINANCE_API_SECRET=""
 
 # Expose the hunter dashboard port
-EXPOSE 3245
+EXPOSE 4564
 
 # Command: run the Binance Hunter
 CMD ["python", "app.py"]

@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 from flask import Flask, render_template_string, render_template, jsonify, request
 
 BOT = os.path.dirname(os.path.abspath(__file__))
-PORT = 4564
+PORT = int(os.environ.get("HUNTER_PORT", "4564"))
 STOP_FILE = os.path.join(BOT, "STOP_HUNTER")
 STATE_FILE = os.path.join(BOT, "hunter_state.json")
 RESULTS_FILE = os.path.join(BOT, "results.json")     # closed-trade ledger for daily/weekly cards
@@ -155,7 +155,7 @@ PREPUMP_RISK = 0.05       # earliest, least-certain path, so it risks the least
 # The hunter trades live (real Binance orders) — the operator's instruction — with
 # the risk-management envelope below as the protection instead of a blanket lock.
 # Set HUNTER_LIVE_ORDERS=0 to disarm into shadow mode without touching code.
-LIVE_ORDERS = os.environ.get("HUNTER_LIVE_ORDERS", "1") == "1"
+LIVE_ORDERS = os.environ.get("HUNTER_LIVE_ORDERS", "0") == "1"
 
 # ---- key permission cache -----------------------------------------------------
 # A Binance key only places orders when `enableSpotAndMarginTrading` is true. When
@@ -3495,4 +3495,4 @@ if __name__ == "__main__":
     
     log_info(f"BINANCE HUNTER DASHBOARD starting on port {PORT}")
     log_info(f"Mission: $9 → $20 | Port: {PORT}")
-    app.run(host="0.0.0.0", port=4564, debug=False, threaded=True)
+    app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True)
