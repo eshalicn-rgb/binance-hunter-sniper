@@ -1,0 +1,42 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Every 5 minutes
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  ping-render:
+    name: Ping Render Service
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Render /api/status
+        run: |
+          curl -fsS --max-time 10 "https://binance-hunter-sniper-1.onrender.com/api/status" \
+            -H "Accept: application/json" \
+            -w "\nHTTP %{http_code} | %{time_total}s\n" \
+            -o /dev/null
+
+      - name: Log success
+        if: success()
+        run: echo "✅ $(date -u) — Render ping OK"
+
+      - name: Log failure
+        if: failure()
+        run: |
+          echo "❌ $(date -u) — Render ping FAILED"
+          exit 1
+
+  # Optional: Also ping the dashboard root
+  ping-dashboard:
+    name: Ping Dashboard Root
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Render Dashboard
+        run: |
+          curl -fsS --max-time 10 "https://binance-hunter-sniper-1.onrender.com/" \
+            -H "Accept: text/html" \
+            -w "\nHTTP %{http_code} | %{time_total}s\n" \
+            -o /dev/null
