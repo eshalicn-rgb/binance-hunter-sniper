@@ -353,7 +353,22 @@ class Notifier:
         self._botname_ts = 0.0
         # Pre-pump-only audience (extra chat IDs that receive PRE-PUMP cards only)
         pp = os.environ.get("TELEGRAM_PREPUMP_CHAT_ID", "").strip()
-        self.prepump_chats = [c.strip() for c in pp.split(",") if c.strip()] if pp else []
+        raw_chats = [c.strip() for c in pp.split(",") if c.strip()] if pp else []
+        # Validate each chat ID by probing Telegram; drop invalid ones so they
+        # never produce "chat not found" errors that mask real delivery status.
+        self.prepump_chats = []
+        for cid in raw_chats:
+            try:
+                r = requests.post(API % (self.bot, "sendMessage"),
+                                  json={"chat_id": cid, "text": "\u200b", "parse_mode": "HTML"},
+                                  timeout=5)
+                if (r.json() or {}).get("ok"):
+                    self.prepump_chats.append(cid)
+                else:
+                    # chat not found or bot blocked — skip silently
+                    pass
+            except Exception:
+                pass
 
     @staticmethod
     def _load_env(path):
