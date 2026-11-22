@@ -141,16 +141,23 @@ MIN_LIQUIDITY_USDT = 10000  # Min liquidity for entry
 VOLUME_SPIKE_MULT = 2.0  # Volume spike multiplier for entry trigger
 PRICE_CHANGE_MULT = 1.5  # Price change multiplier
 
-# Full-market sweep + deep-scan shortlist
-SHORTLIST = int(os.environ.get("SHORTLIST", "20"))   # symbols deep-scanned each cycle (order book + trades + klines)
-WATCH_MIN = 60            # score floor for recording a cycle's shortlist into the follow-up ledger
-SWEEP_MIN_QUOTE = 100000  # min 24h quote volume (USDT) to be considered tradable
-MARKET_SHOW = 400         # ranked market rows exposed to the dashboard
-DEEP_KLINES = 120         # 1m bars pulled per deep-scan symbol (drives Fib/Gann structure)
-DEAD_MIN_TRADES = 150     # fewer than this in 24h = dead market, never hunted
-CATALYST_RISK = 0.06      # catalyst entries risk less than flow entries (6% vs 10%)
-PREPUMP_ENTRY = 40        # pre-pump score required by the early (before-the-move) path
-PREPUMP_RISK = 0.05       # earliest, least-certain path, so it risks the least
+# Full-market sweep + deep-scan shortlist - TUNABLE via .env for wider token range
+def _envi(name, default):
+    try:
+        return int(os.environ.get(name, "") or default)
+    except Exception:
+        return int(default)
+
+SHORTLIST = _envi("HUNTER_SHORTLIST", 40)            # symbols deep-scanned each cycle (order book + trades + klines)
+WATCH_MIN = _envi("HUNTER_WATCH_MIN", 40)            # score floor for recording a cycle's shortlist into the follow-up ledger
+SWEEP_MIN_QUOTE = _envi("HUNTER_SWEEP_MIN_QUOTE", 50000)  # min 24h quote volume (USDT) to be considered tradable
+MARKET_SHOW = _envi("HUNTER_MARKET_SHOW", 800)       # ranked market rows exposed to the dashboard
+DEEP_KLINES = _envi("HUNTER_DEEP_KLINES", 240)       # 1m bars pulled per deep-scan symbol (drives Fib/Gann structure)
+DEAD_MIN_TRADES = _envi("HUNTER_DEAD_MIN_TRADES", 100)     # fewer than this in 24h = dead market, never hunted
+CATALYST_RISK = _envf("CATALYST_RISK", 0.06)         # catalyst entries risk less than flow entries (6% vs 10%)
+PREPUMP_ENTRY = _envf("PREPUMP_ENTRY", 30)           # pre-pump score required by the early (before-the-move) path
+PREPUMP_RISK = _envf("PREPUMP_RISK", 0.05)           # earliest, least-certain path, so it risks the least
+FIRSTMOVE_INJECT = _envi("HUNTER_FIRSTMOVE_INJECT", 20)    # radar names force-added to the deep scan each cycle
 
 # ---- live orders: armed, but behind hard risk limits ----
 # The hunter trades live (real Binance orders) — the operator's instruction — with
