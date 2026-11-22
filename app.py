@@ -38,6 +38,7 @@ import altfins
 import alertbook
 import pregainers
 import regime
+import notion_journal as nj
 try:
     import tgtools as tgtools_mod
 except Exception as _tgt_exc:          # inbound tools must never block boot
@@ -131,7 +132,7 @@ BINANCE_API_SECRET = os.environ.get("BINANCE_API_SECRET", "")
 BINANCE_BASE = os.environ.get("BINANCE_BASE", "https://api.binance.com")
 
 # Trading parameters for small account
-START_BALANCE = float(os.environ.get("HUNTER_START_BALANCE", "9.0"))
+START_BALANCE = float(os.environ.get("HUNTER_START_BALANCE", "100.0"))
 TARGET_BALANCE = float(os.environ.get("HUNTER_TARGET_BALANCE", "20.0"))
 RISK_PER_TRADE = float(os.environ.get("RISK_PER_TRADE", "0.02"))  # risk per trade (matches .env default 0.02)
 MAX_POSITIONS = 3        # Max concurrent positions
@@ -141,7 +142,7 @@ VOLUME_SPIKE_MULT = 2.0  # Volume spike multiplier for entry trigger
 PRICE_CHANGE_MULT = 1.5  # Price change multiplier
 
 # Full-market sweep + deep-scan shortlist
-SHORTLIST = 20            # symbols deep-scanned each cycle (order book + trades + klines)
+SHORTLIST = int(os.environ.get("SHORTLIST", "20"))   # symbols deep-scanned each cycle (order book + trades + klines)
 WATCH_MIN = 60            # score floor for recording a cycle's shortlist into the follow-up ledger
 SWEEP_MIN_QUOTE = 100000  # min 24h quote volume (USDT) to be considered tradable
 MARKET_SHOW = 400         # ranked market rows exposed to the dashboard
@@ -192,17 +193,17 @@ def _envf(name, default):
 # Gates are tunable from .env so the signal feed can be widened without a code
 # edit. Defaults are the checked-out 2026-11 values: strict enough to keep the
 # hunter long-only and liquid, loose enough that a quiet tape still prints.
-HUNT_MIN_SCORE = _envf("HUNT_MIN_SCORE", 45)     # order-flow score floor
-HUNT_MIN_VOL = _envf("HUNT_MIN_VOL", 1.5)        # volume vs baseline
-HUNT_MIN_MOM = _envf("HUNT_MIN_MOM", 0.8)        # % move over 5m
-HUNT_MAX_SPREAD = _envf("HUNT_MAX_SPREAD", 0.5)  # % bid/ask spread
-HUNT_MIN_DEPTH = _envf("HUNT_MIN_DEPTH", 10000)  # $ per side in the book
-HUNT_MIN_IMBAL = _envf("HUNT_MIN_IMBAL", 0.50)   # buy-side share of the book
-HUNT_GATE_NEED = _envf("HUNT_GATE_NEED", 0.50)   # bullish-structure confidence
+HUNT_MIN_SCORE = _envf("HUNT_MIN_SCORE", 35)     # order-flow score floor (lowered for more signals)
+HUNT_MIN_VOL = _envf("HUNT_MIN_VOL", 1.0)        # volume vs baseline (lowered)
+HUNT_MIN_MOM = _envf("HUNT_MIN_MOM", 0.3)        # % move over 5m (lowered)
+HUNT_MAX_SPREAD = _envf("HUNT_MAX_SPREAD", 0.8)  # % bid/ask spread (widened from 0.5)
+HUNT_MIN_DEPTH = _envf("HUNT_MIN_DEPTH", 5000)   # $ per side in the book (widened from 10000)
+HUNT_MIN_IMBAL = _envf("HUNT_MIN_IMBAL", 0.40)   # buy-side share of the book (widened from 0.50)
+HUNT_GATE_NEED = _envf("HUNT_GATE_NEED", 0.40)   # bullish-structure confidence (widened from 0.50)
 CATALYST_MIN_DEPTH = 10000
 CATALYST_MIN_VOL = 1.0
 PREPUMP_MIN_DEPTH = 10000
-PREPUMP_ENTRY = _envf("PREPUMP_ENTRY", 40)   # pre-pump score required (from .env)
+PREPUMP_ENTRY = _envf("PREPUMP_ENTRY", 30)   # pre-pump score required (lowered for more signals)
 FIRSTMOVE_MIN = _envf("FIRSTMOVE_MIN", 40)   # First-Move Radar pregain score required to fire
 FIRSTMOVE_MIN_VOL = 0.8   # a pre-gainer still needs volume arriving
 FIRSTMOVE_INJECT = 10     # radar names force-added to the deep scan each cycle
@@ -1407,6 +1408,16 @@ class Hunter:
                 reasons=st.get("reasons"), state=st.get("state"),
                 trigger=st.get("trigger"), target=st.get("target"),
                 invalidation=st.get("invalidation"), plan=pl)
+            # Notion journal: every fired signal is tracked outside the local ledger
+            try:
+                nj.log_signal(
+                    symbol=analysis.get("symbol"), score=score,
+                    entry_type=entry_type, timeframe=tf or analysis.get("hunt_tf") or st.get("tf") or "1m",
+                    reasons=st.get("reasons"), state=st.get("state"),
+                    trigger=st.get("trigger"), target=st.get("target"),
+                    invalidation=st.get("invalidation"), plan=pl, ts=time.time())
+            except Exception as e:
+                log_error(f"notion_journal signal error: {e}")
         except Exception as e:
             log_error(f"_track error: {e}")
             return None
@@ -1911,17 +1922,73 @@ class Hunter:
         # that used to print 44 ms after the first in the same cycle.
         self.entry_guard[_g_sym or symbol] = time.time()
 
-        # ---- shadow mode: describe the trade, never send it (HUNTER_LIVE_ORDERS=0) ----
+        # ---- shadow/paper mode: record the trade as a real-looking entry
+        # ---- (HUNTER_LIVE_ORDERS=0) — forward testing, no real Binance order ----
         if not LIVE_ORDERS:
-            log_info(f"SHADOW ENTRY (live orders disarmed): would BUY {symbol} "
+            log_info(f"PAPER ENTRY (live orders disarmed): would BUY {symbol} "
                      f"~${usdt_amount:.2f} @ {current_price} [{entry_type}]")
             try:
-                swarm.record_event("executor", "shadow-entry", symbol,
-                                   f"disarmed — would BUY ${usdt_amount:.2f} [{entry_type}]")
+                swarm.record_event("executor", "paper-entry", symbol,
+                                   f"paper — would BUY ${usdt_amount:.2f} [{entry_type}]")
             except Exception:
                 pass
-            # Card sending and ledger tracking are handled by the should_enter_*()
-            # caller — execute_trade() only executes, never notifies.
+            # Record the paper entry as a real-looking trade for forward testing.
+            # Mirrors the live branch: positions, state, ledger entry, Telegram card.
+            pos = {
+                "symbol": symbol,
+                "side": side,
+                "quantity": quantity,
+                "entry_price": current_price,
+                "timestamp": time.time(),
+                "order_flow_score": analysis.get("order_flow_score", 0),
+                "volume_ratio": analysis.get("volume_ratio", 0),
+                "order_id": None,
+                "entry_type": entry_type,
+                "entry_reason": entry_reason,
+                "catalyst": analysis.get("catalyst", 0),
+                "ta_bias": (analysis.get("ta") or {}).get("bias", ""),
+                "feed_flags": analysis.get("feed_flags", []),
+                "hunt_tf": analysis.get("hunt_tf") or "1m",
+                "plan": pl,
+                "hi": current_price,
+                "status": "OPEN",
+                "paper": True,
+            }
+            self.positions[symbol] = pos
+            self.state["trades"].append(pos)
+            self._save_state()
+            # Notion journal: log the paper entry so it is tracked outside local JSON
+            try:
+                page_id = nj.log_entry(
+                    symbol=symbol, side=side, entry_price=current_price, qty=quantity,
+                    notional_usd=usdt_amount, entry_type=entry_type,
+                    entry_reason=entry_reason, score=analysis.get("order_flow_score", 0),
+                    timeframe=analysis.get("hunt_tf") or "1m", plan=pl,
+                    paper=True, order_id=pos.get("order_id"), ts=time.time())
+                pos["notion_page_id"] = page_id
+            except Exception as e:
+                log_error(f"notion_journal entry error: {e}")
+            # Record entry in the follow-up ledger (same record kind as live mode)
+            try:
+                self._track(analysis, side, analysis.get("order_flow_score", 0),
+                            entry_type, kind="entry", px=current_price)
+            except Exception:
+                pass
+            # Send entry card (same as live mode)
+            try:
+                self._card("paper:" + symbol, card_signal(
+                    symbol, side, analysis.get("order_flow_score", 0), entry_type,
+                    vol=analysis.get("volume_ratio", 0),
+                    price=current_price,
+                    tf=analysis.get("hunt_tf") or "1m",
+                    mom=analysis.get("momentum_5m"),
+                    imb=analysis.get("imbalance"),
+                    ta_bias=(analysis.get("ta") or {}).get("bias", ""),
+                    ta_score=(analysis.get("ta") or {}).get("score"),
+                    flags=analysis.get("feed_flags"),
+                    plan=pl), ttl=180)
+            except Exception:
+                pass
             return None
 
         # ---- live permission gate: the key must actually carry Spot trading ----
@@ -1976,6 +2043,17 @@ class Hunter:
             self.positions[symbol] = pos
             self.state["trades"].append(pos)
             self._save_state()
+            # Notion journal: log the live entry so it is tracked outside local JSON
+            try:
+                page_id = nj.log_entry(
+                    symbol=symbol, side=side, entry_price=current_price, qty=quantity,
+                    notional_usd=usdt_amount, entry_type=entry_type,
+                    entry_reason=entry_reason, score=analysis.get("order_flow_score", 0),
+                    timeframe=analysis.get("hunt_tf") or "1m", plan=pl,
+                    paper=False, order_id=result.get("orderId"), ts=time.time())
+                pos["notion_page_id"] = page_id
+            except Exception as e:
+                log_error(f"notion_journal entry error: {e}")
             log_info(f"HUNTER ENTERED [{entry_type}]: {side} {symbol} @ {current_price} "
                      f"qty={quantity} score={analysis.get('order_flow_score', 0)}")
             # Record entry through swarm
@@ -2019,6 +2097,17 @@ class Hunter:
             })
             with open(RESULTS_FILE, "w") as f:
                 json.dump(rows[-2000:], f, indent=1)
+            # Notion journal: close the page for this trade
+            page_id = pos.get("notion_page_id")
+            if page_id:
+                try:
+                    nj.log_exit(
+                        page_id=page_id, symbol=pos.get("symbol"),
+                        exit_price=pos.get("exit_price"), pnl_pct=pos.get("pnl_pct", 0),
+                        pnl_usd=pos.get("pnl", 0), reason=pos.get("exit_reason", ""),
+                        entry_price=pos.get("entry_price"), ts=pos.get("exit_ts"))
+                except Exception as e:
+                    log_error(f"notion_journal exit error: {e}")
         except Exception as e:
             log_error(f"record_result error: {e}")
 
