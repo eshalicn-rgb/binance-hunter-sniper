@@ -359,8 +359,8 @@ class Notifier:
         self.prepump_chats = []
         for cid in raw_chats:
             try:
-                r = requests.post(API % (self.bot, "sendMessage"),
-                                  json={"chat_id": cid, "text": "\u200b", "parse_mode": "HTML"},
+                r = requests.post(API % (self.bot, "getChat"),
+                                  json={"chat_id": cid},
                                   timeout=5)
                 if (r.json() or {}).get("ok"):
                     self.prepump_chats.append(cid)
